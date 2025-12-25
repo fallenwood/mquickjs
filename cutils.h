@@ -42,9 +42,7 @@
 #define stringify(s)    tostring(s)
 #define tostring(s)     #s
 
-#ifndef offsetof
-#define offsetof(type, field) ((size_t) &((type *)0)->field)
-#endif
+#define offsetof(type, field) __builtin_offsetof(type, field)
 #ifndef countof
 #define countof(x) (sizeof(x) / sizeof((x)[0]))
 #endif
