@@ -1,0 +1,6 @@
+zig-out
+.zig-cache
+
+example_stdlib.h
+mqjs_stdlib.h
+mquickjs_atom.h
