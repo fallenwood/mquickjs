@@ -4,6 +4,8 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    b.top_level_steps = .{};
+
     const flags = [_][]const u8{
         "-std=gnu11",
         "-DZIG_BUILD",
@@ -25,12 +27,12 @@ pub fn build(b: *std.Build) void {
         },
         .flags = &flags,
     });
-    const mqjsStdlibLib = b.addExecutable(.{
+    const mqjsStdlibExecutable = b.addExecutable(.{
         .name = "mqjs_stdlib",
         .root_module = mqjsStdlibMod,
     });
-    mqjsStdlibLib.linkLibC();
-    b.installArtifact(mqjsStdlibLib);
+    mqjsStdlibExecutable.linkLibC();
+    b.installArtifact(mqjsStdlibExecutable);
 
     // example stdlib
     const exampleStdlibMod = b.createModule(.{
@@ -51,6 +53,25 @@ pub fn build(b: *std.Build) void {
     });
     exampleStdlibLib.linkLibC();
     b.installArtifact(exampleStdlibLib);
+
+    // Generate
+    const generateMqjsStdlibCmd = b.addRunArtifact(mqjsStdlibExecutable);
+    const mqjsStdlibPath = generateMqjsStdlibCmd.captureStdOut();
+    const copyMqjsStdlibStep = b.addUpdateSourceFiles();
+    copyMqjsStdlibStep.addCopyFileToSource(mqjsStdlibPath, "mqjs_stdlib.h");
+    generateMqjsStdlibCmd.step.dependOn(&mqjsStdlibExecutable.step);
+
+    const generateMqjsAtomCmd = b.addRunArtifact(mqjsStdlibExecutable);
+    generateMqjsAtomCmd.addArg("-a");
+    const mqjsAtomPath = generateMqjsAtomCmd.captureStdOut();
+    const copyMqjsAtomStep = b.addUpdateSourceFiles();
+    copyMqjsAtomStep.addCopyFileToSource(mqjsAtomPath, "mquickjs_atom.h");
+    generateMqjsAtomCmd.step.dependOn(&mqjsStdlibExecutable.step);
+
+    const generateExampleStdlibCmd = b.addRunArtifact(exampleStdlibLib);
+    const exampleStdlibPath = generateExampleStdlibCmd.captureStdOut();
+    const copyExampleStdlibStep = b.addUpdateSourceFiles();
+    copyExampleStdlibStep.addCopyFileToSource(exampleStdlibPath, "example_stdlib.h");
 
     // mqjs executable
     const mqjsMod = b.createModule(.{
@@ -76,6 +97,8 @@ pub fn build(b: *std.Build) void {
     });
     mqjsExecutableBinary.linkLibC();
     b.installArtifact(mqjsExecutableBinary);
+    mqjsExecutableBinary.step.dependOn(&copyMqjsStdlibStep.step);
+    mqjsExecutableBinary.step.dependOn(&copyMqjsAtomStep.step);
 
     // example executable
     const exampleExecutableMod = b.createModule(.{
@@ -98,6 +121,7 @@ pub fn build(b: *std.Build) void {
     });
     exampleExecutableBinary.linkLibC();
     b.installArtifact(exampleExecutableBinary);
+    exampleExecutableBinary.step.dependOn(&copyExampleStdlibStep.step);
 
     // dynamic library
     const libmqjsMod = b.createModule(.{
@@ -124,4 +148,6 @@ pub fn build(b: *std.Build) void {
     });
     dynlib.linkLibC();
     b.installArtifact(dynlib);
+    dynlib.step.dependOn(&copyMqjsStdlibStep.step);
+    dynlib.step.dependOn(&copyMqjsAtomStep.step);
 }
